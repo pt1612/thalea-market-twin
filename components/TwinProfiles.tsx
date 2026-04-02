@@ -2,117 +2,146 @@
 
 import { useEffect, useState } from 'react'
 import type { DigitalTwin, ProjectInfo } from '@/lib/types'
-import { TWIN_COLORS } from '@/lib/types'
+import {
+  getInitials,
+  getTechLabel,
+  getTechProgress,
+  getAffinityBadge,
+  getBudgetBadge,
+  TWIN_SIDEBAR_COLORS,
+  getTwinIndex,
+} from '@/lib/types'
 
 interface TwinProfilesProps {
   projectInfo: ProjectInfo
+  initialTwins: DigitalTwin[] | null
   onContinue: (twins: DigitalTwin[]) => void
+  onBack: () => void
 }
 
-function TwinSkeleton() {
+function TwinCardSkeleton() {
   return (
-    <div className="bg-white border border-gray-200 rounded-xl p-5 animate-pulse">
-      <div className="flex items-center gap-3 mb-4">
-        <div className="w-10 h-10 rounded-full bg-gray-200" />
-        <div className="space-y-2">
-          <div className="h-4 w-28 bg-gray-200 rounded" />
-          <div className="h-3 w-20 bg-gray-100 rounded" />
+    <div className="bg-white rounded-2xl p-6 animate-pulse">
+      <div className="flex items-start justify-between mb-5">
+        <div className="w-12 h-12 rounded-xl bg-gray-200" />
+        <div className="flex gap-1.5">
+          <div className="h-5 w-20 bg-gray-100 rounded-full" />
+          <div className="h-5 w-16 bg-gray-100 rounded-full" />
         </div>
       </div>
-      <div className="space-y-2 mb-4">
+      <div className="h-6 w-36 bg-gray-200 rounded mb-1" />
+      <div className="h-4 w-24 bg-gray-100 rounded mb-5" />
+      <div className="space-y-2 mb-5">
+        <div className="h-3 w-16 bg-gray-100 rounded" />
         <div className="h-3 w-full bg-gray-100 rounded" />
         <div className="h-3 w-5/6 bg-gray-100 rounded" />
       </div>
-      <div className="space-y-1.5">
-        {[1, 2, 3].map((i) => (
-          <div key={i} className="h-3 w-4/5 bg-gray-100 rounded" />
-        ))}
+      <div className="space-y-2 mb-5">
+        <div className="h-3 w-16 bg-gray-100 rounded" />
+        <div className="h-2 w-full bg-gray-100 rounded-full" />
       </div>
+      <div className="h-3 w-full bg-gray-100 rounded" />
     </div>
   )
 }
 
 function TwinCard({ twin }: { twin: DigitalTwin }) {
-  const colors = TWIN_COLORS[twin.id] ?? TWIN_COLORS.twin1
-  const initials = twin.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
+  const idx = getTwinIndex(twin.id)
+  const avatarColor = TWIN_SIDEBAR_COLORS[idx] ?? TWIN_SIDEBAR_COLORS[0]
+  const techLabel = getTechLabel(twin.techSavviness)
+  const techPct = getTechProgress(twin.techSavviness)
+  const affinityBadge = getAffinityBadge(twin.techSavviness)
+  const budgetBadge = getBudgetBadge(twin.budget)
 
-  const techLabel = { low: 'Low', medium: 'Medium', high: 'High' }[twin.techSavviness]
+  const affinityColors: Record<string, string> = {
+    'HIGH AFFINITY': 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    MODERATE: 'bg-slate-50 text-slate-600 border-slate-200',
+    'EARLY ADOPTER': 'bg-blue-50 text-blue-700 border-blue-200',
+  }
 
   return (
-    <div className={`bg-white border ${colors.border} rounded-xl p-5 flex flex-col gap-4`}>
+    <div className="bg-white rounded-2xl p-6 flex flex-col gap-0 border border-forest/5 hover:border-forest/15 transition-colors">
       {/* Header */}
-      <div className="flex items-start gap-3">
+      <div className="flex items-start justify-between mb-5">
         <div
-          className={`w-10 h-10 rounded-full ${colors.bg} ${colors.text} flex items-center justify-center text-sm font-semibold flex-shrink-0`}
+          className={`w-12 h-12 rounded-xl ${avatarColor} flex items-center justify-center text-sm font-bold flex-shrink-0`}
         >
-          {initials}
+          {getInitials(twin.name)}
         </div>
-        <div className="min-w-0">
-          <h3 className="font-semibold text-gray-900 text-sm leading-tight">{twin.name}</h3>
-          <p className="text-xs text-gray-500 mt-0.5">
-            {twin.age} · {twin.occupation}
+        <div className="flex flex-col items-end gap-1">
+          <span
+            className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${
+              affinityColors[affinityBadge] ?? 'bg-gray-50 text-gray-600 border-gray-200'
+            }`}
+          >
+            {affinityBadge}
+          </span>
+          <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-forest text-white">
+            {budgetBadge}
+          </span>
+        </div>
+      </div>
+
+      {/* Name + occupation */}
+      <h3 className="text-xl font-bold text-forest leading-tight">{twin.name}</h3>
+      <p className="text-sm text-forest/40 mt-0.5 mb-5">
+        Age {twin.age} • {twin.occupation}
+      </p>
+
+      {/* Pain points */}
+      <div className="mb-5">
+        <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mb-2.5">
+          Pain Points
+        </p>
+        <ul className="space-y-1.5">
+          {twin.painPoints.map((pt, i) => (
+            <li key={i} className="flex items-start gap-2 text-xs text-forest/70">
+              <span className="text-forest/40 font-bold flex-shrink-0 mt-px">×</span>
+              {pt}
+            </li>
+          ))}
+        </ul>
+      </div>
+
+      {/* Tech level */}
+      <div className="mb-5">
+        <div className="flex items-center justify-between mb-2">
+          <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30">
+            Tech Level
           </p>
+          <span className="text-xs font-semibold text-forest/60">{techLabel}</span>
+        </div>
+        <div className="h-1 w-full bg-forest/10 rounded-full overflow-hidden">
+          <div
+            className="h-full bg-forest rounded-full transition-all duration-700"
+            style={{ width: `${techPct}%` }}
+          />
         </div>
       </div>
 
-      {/* Background */}
-      <p className="text-xs text-gray-600 leading-relaxed">{twin.background}</p>
-
-      {/* Pain Points */}
-      <div>
-        <p className="text-xs font-medium text-gray-700 mb-1.5">Pain points</p>
-        <ul className="space-y-1">
-          {twin.painPoints.map((point, i) => (
-            <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600">
-              <span className={`mt-1.5 w-1 h-1 rounded-full ${colors.dot} flex-shrink-0`} />
-              {point}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Motivations */}
-      <div>
-        <p className="text-xs font-medium text-gray-700 mb-1.5">Motivations</p>
-        <ul className="space-y-1">
-          {twin.motivations.map((m, i) => (
-            <li key={i} className="flex items-start gap-1.5 text-xs text-gray-600">
-              <span className="mt-1.5 w-1 h-1 rounded-full bg-gray-400 flex-shrink-0" />
-              {m}
-            </li>
-          ))}
-        </ul>
-      </div>
-
-      {/* Footer badges */}
-      <div className="flex flex-wrap gap-2 pt-1 border-t border-gray-100">
-        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${colors.badge}`}>
-          Tech: {techLabel}
-        </span>
-        <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-gray-100 text-gray-600">
-          {twin.budget}
-        </span>
-      </div>
-
-      {/* Personality */}
-      <p className="text-xs text-gray-400 italic border-t border-gray-100 pt-3">
+      {/* Quote */}
+      <p className="text-xs italic text-forest/40 leading-relaxed border-t border-forest/10 pt-4 mt-auto">
         &ldquo;{twin.personality}&rdquo;
       </p>
     </div>
   )
 }
 
-export default function TwinProfiles({ projectInfo, onContinue }: TwinProfilesProps) {
-  const [twins, setTwins] = useState<DigitalTwin[]>([])
-  const [loading, setLoading] = useState(true)
+export default function TwinProfiles({ projectInfo, initialTwins, onContinue, onBack }: TwinProfilesProps) {
+  const [twins, setTwins] = useState<DigitalTwin[]>(initialTwins ?? [])
+  const [loading, setLoading] = useState(!initialTwins)
+  const [progress, setProgress] = useState(initialTwins ? 100 : 0)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
+    if (initialTwins) return
+
+    let tick = 0
+    const interval = setInterval(() => {
+      tick += Math.random() * 18 + 5
+      setProgress(Math.min(tick, 85))
+    }, 400)
+
     async function fetchTwins() {
       try {
         const res = await fetch('/api/generate-twins', {
@@ -122,57 +151,98 @@ export default function TwinProfiles({ projectInfo, onContinue }: TwinProfilesPr
         })
         if (!res.ok) throw new Error('Failed to generate twins')
         const data = await res.json()
+        clearInterval(interval)
+        setProgress(100)
         setTwins(data.twins)
       } catch {
+        clearInterval(interval)
         setError('Could not generate Digital Twins. Please check your API key and try again.')
       } finally {
         setLoading(false)
       }
     }
+
     fetchTwins()
-  }, [projectInfo])
+    return () => clearInterval(interval)
+  }, [initialTwins, projectInfo])
+
+  const count = projectInfo.twinCount
 
   return (
-    <div className="max-w-4xl mx-auto">
-      <div className="mb-8">
-        <h2 className="text-xl font-semibold text-gray-900">Your Digital Twins</h2>
-        <p className="text-gray-500 text-sm mt-1">
-          {loading
-            ? 'Generating realistic customer profiles based on your target audience...'
-            : 'Meet your three simulated customers. Review their profiles before starting the interview.'}
-        </p>
+    <div className="max-w-7xl mx-auto px-6 py-14">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-8">
+        <div>
+          <p className="text-xs font-bold tracking-widest uppercase text-forest/30 mb-2">Step 02</p>
+          <h2 className="text-4xl sm:text-5xl font-black text-forest tracking-tight">Market Twins</h2>
+          <p className="text-forest/40 text-sm mt-3 max-w-md">
+            Meet your high-fidelity customer personas. These AI-driven archetypes represent segmented
+            market behaviors identified through our digital atelier analysis.
+          </p>
+        </div>
+
+        {/* Progress indicator */}
+        <div className="hidden sm:block text-right mt-1">
+          <p className="text-xs font-bold text-forest/40 mb-2">
+            {loading ? `${Math.round(progress)}% Generated` : '100% Generated'}
+          </p>
+          <div className="w-36 h-1 bg-forest/10 rounded-full overflow-hidden">
+            <div
+              className="h-full bg-forest rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+        </div>
       </div>
 
-      {loading && (
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-          <TwinSkeleton />
-          <TwinSkeleton />
-          <TwinSkeleton />
-        </div>
-      )}
-
+      {/* Error */}
       {error && (
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6 text-sm text-red-700">
+        <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-8 text-sm text-red-700">
           {error}
         </div>
       )}
 
+      {/* Cards grid */}
+      <div
+        className={`grid grid-cols-1 gap-4 mb-10 ${
+          count === 1
+            ? 'sm:grid-cols-1 max-w-sm'
+            : count === 2
+            ? 'sm:grid-cols-2 max-w-2xl'
+            : count <= 3
+            ? 'sm:grid-cols-3'
+            : count === 4
+            ? 'sm:grid-cols-2 lg:grid-cols-4'
+            : 'sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5'
+        }`}
+      >
+        {loading
+          ? Array.from({ length: count }).map((_, i) => <TwinCardSkeleton key={i} />)
+          : twins.map((twin) => <TwinCard key={twin.id} twin={twin} />)}
+      </div>
+
+      {/* Navigation */}
       {!loading && twins.length > 0 && (
-        <>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
-            {twins.map((twin) => (
-              <TwinCard key={twin.id} twin={twin} />
-            ))}
-          </div>
-          <div className="flex justify-end">
-            <button
-              onClick={() => onContinue(twins)}
-              className="px-8 py-2.5 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
-            >
-              Start Interview
-            </button>
-          </div>
-        </>
+        <div className="flex items-center justify-between">
+          <button
+            onClick={onBack}
+            className="flex items-center gap-2 text-sm font-bold text-forest/40 hover:text-forest transition-colors tracking-wider uppercase"
+          >
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+            </svg>
+            Previous Segment
+          </button>
+          <button
+            onClick={() => onContinue(twins)}
+            className="flex items-center gap-3 bg-forest text-white text-sm font-bold px-7 py-3 rounded-xl hover:bg-forest-light transition-colors tracking-wide"
+          >
+            REVIEW ANALYSIS
+            <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
+          </button>
+        </div>
       )}
     </div>
   )

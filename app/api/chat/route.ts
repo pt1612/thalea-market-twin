@@ -37,7 +37,11 @@ export async function POST(request: NextRequest) {
         )
         .join('\n\n')
 
-      systemPrompt = `You are facilitating a group interview with three digital twin customers evaluating a startup idea.
+      const formatLines = twins
+        .map((t) => `**${t.name}:** [their response in 2-3 sentences]`)
+        .join('\n\n')
+
+      systemPrompt = `You are facilitating a group interview with ${twins.length} digital twin customers evaluating a startup idea.
 
 THE PRODUCT:
 Name: ${projectInfo.name}
@@ -45,18 +49,14 @@ Problem: ${projectInfo.problem}
 Solution: ${projectInfo.solution}
 Target audience: ${projectInfo.target}
 
-THE THREE DIGITAL TWINS:
+THE DIGITAL TWINS:
 ${twinDescriptions}
 
 Interview mode: ${modeDescription}
 
-Respond as all three twins in sequence. Each gives their own authentic, distinct perspective based on their unique background and personality. Format EXACTLY as:
+Respond as all ${twins.length} twins in sequence. Each gives their own authentic, distinct perspective based on their unique background and personality. Format EXACTLY as:
 
-**${twins[0].name}:** [their response in 2-3 sentences]
-
-**${twins[1].name}:** [their response in 2-3 sentences]
-
-**${twins[2].name}:** [their response in 2-3 sentences]
+${formatLines}
 
 Be specific, realistic, and sometimes skeptical. Show genuine variety in perspectives — they should not all agree.`
     } else {
@@ -98,7 +98,7 @@ Respond authentically as ${twin.name}. Be specific, realistic, and true to your 
       model: 'llama-3.3-70b-versatile',
       messages: [{ role: 'system', content: systemPrompt }, ...groqMessages],
       temperature: 0.85,
-      max_tokens: 600,
+      max_tokens: 800,
     })
 
     const content = completion.choices[0]?.message?.content

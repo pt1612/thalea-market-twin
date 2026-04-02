@@ -2,129 +2,151 @@
 
 import { useEffect, useRef, useState } from 'react'
 import type { DigitalTwin, Message, ProjectInfo } from '@/lib/types'
-import { TWIN_COLORS } from '@/lib/types'
+import { getInitials, TWIN_SIDEBAR_COLORS, getTwinIndex, formatTime } from '@/lib/types'
 
 interface InterviewChatProps {
   projectInfo: ProjectInfo
   twins: DigitalTwin[]
+  initialMessages: Message[]
   onGenerateReport: (messages: Message[]) => void
 }
 
-const SUGGESTED_QUESTIONS: Record<'problem' | 'value', string[]> = {
+const SUGGESTED: Record<'problem' | 'value', string[]> = {
   problem: [
-    'How often do you encounter this problem?',
-    'How do you currently handle this situation?',
-    'How painful is this problem, on a scale of 1–10?',
-    "What's the worst part about your current approach?",
-    'Have you ever paid for a solution to this before?',
-    'What would change in your work if this problem disappeared?',
+    '"What is your current workaround?"',
+    '"Who else feels this pain in your team?"',
+    '"What\'s the #1 feature you need?"',
+    '"How often does this block your work?"',
+    '"Have you paid for a solution before?"',
   ],
   value: [
-    'Would you use this solution if it existed today?',
-    'How much would you be willing to pay per month?',
-    'What feature would matter most to you?',
-    'What would stop you from switching to this?',
-    'How does this compare to what you use today?',
-    'Who else on your team or in your life would benefit from this?',
+    '"Would you use this today if it existed?"',
+    '"What would you pay per month?"',
+    '"What would stop you from switching?"',
+    '"Who else would benefit from this?"',
+    '"How does this compare to your current tool?"',
   ],
 }
 
-function Avatar({ twin, size = 'sm' }: { twin: DigitalTwin; size?: 'sm' | 'md' }) {
-  const colors = TWIN_COLORS[twin.id] ?? TWIN_COLORS.twin1
-  const initials = twin.name
-    .split(' ')
-    .map((n) => n[0])
-    .join('')
-    .toUpperCase()
-    .slice(0, 2)
-  const sizeClass = size === 'sm' ? 'w-7 h-7 text-xs' : 'w-9 h-9 text-sm'
+function TwinAvatar({
+  twin,
+  size = 'sm',
+}: {
+  twin: DigitalTwin
+  size?: 'sm' | 'md'
+}) {
+  const idx = getTwinIndex(twin.id)
+  const colorClass = TWIN_SIDEBAR_COLORS[idx] ?? TWIN_SIDEBAR_COLORS[0]
+  const sz = size === 'sm' ? 'w-8 h-8 text-xs' : 'w-10 h-10 text-sm'
   return (
     <div
-      className={`${sizeClass} rounded-full ${colors.bg} ${colors.text} flex items-center justify-center font-semibold flex-shrink-0`}
+      className={`${sz} rounded-full ${colorClass} flex items-center justify-center font-bold flex-shrink-0`}
     >
-      {initials}
+      {getInitials(twin.name)}
     </div>
   )
 }
 
-function MessageBubble({ message, twins }: { message: Message; twins: DigitalTwin[] }) {
+function ChatBubble({ message, twins }: { message: Message; twins: DigitalTwin[] }) {
   if (message.role === 'user') {
     return (
-      <div className="flex justify-end">
-        <div className="max-w-[80%] bg-black text-white text-sm px-4 py-2.5 rounded-2xl rounded-tr-sm">
-          {message.content}
-        </div>
-      </div>
-    )
-  }
-
-  // Multi-twin response: parse and render each twin separately
-  if (message.twinId === 'all') {
-    const lines = message.content.split(/\n\n/)
-    const parsed: { name: string; text: string; twin?: DigitalTwin }[] = []
-    for (const line of lines) {
-      const match = line.match(/^\*\*(.+?)\*\*:\s*([\s\S]+)$/)
-      if (match) {
-        const twinMatch = twins.find((t) => t.name === match[1])
-        parsed.push({ name: match[1], text: match[2].trim(), twin: twinMatch })
-      }
-    }
-
-    if (parsed.length === 0) {
-      return (
-        <div className="flex gap-2 items-start">
-          <div className="w-7 h-7 rounded-full bg-gray-200 flex-shrink-0" />
-          <div className="max-w-[80%] bg-white border border-gray-200 text-sm px-4 py-2.5 rounded-2xl rounded-tl-sm text-gray-800">
+      <div className="flex justify-end px-6 py-2">
+        <div className="max-w-[70%]">
+          <div className="bg-forest text-white text-sm px-5 py-3.5 rounded-2xl rounded-tr-sm leading-relaxed">
             {message.content}
           </div>
         </div>
-      )
-    }
-
-    return (
-      <div className="space-y-3">
-        {parsed.map((p, i) => (
-          <div key={i} className="flex gap-2 items-start">
-            {p.twin ? (
-              <Avatar twin={p.twin} />
-            ) : (
-              <div className="w-7 h-7 rounded-full bg-gray-200 flex-shrink-0" />
-            )}
-            <div className="max-w-[80%]">
-              <p className="text-xs font-medium text-gray-500 mb-1">{p.name}</p>
-              <div className="bg-white border border-gray-200 text-sm px-4 py-2.5 rounded-2xl rounded-tl-sm text-gray-800 leading-relaxed">
-                {p.text}
-              </div>
-            </div>
-          </div>
-        ))}
       </div>
     )
   }
 
-  // Single twin response
   const twin = twins.find((t) => t.id === message.twinId)
+  const idx = twin ? getTwinIndex(twin.id) : 0
+  const bubbleColors = [
+    'bg-cream border-amber-100',
+    'bg-emerald-50 border-emerald-100',
+    'bg-blue-50 border-blue-100',
+    'bg-purple-50 border-purple-100',
+    'bg-rose-50 border-rose-100',
+  ]
+  const bubbleColor = bubbleColors[idx] ?? bubbleColors[0]
+
   return (
-    <div className="flex gap-2 items-start">
-      {twin ? (
-        <Avatar twin={twin} />
-      ) : (
-        <div className="w-7 h-7 rounded-full bg-gray-200 flex-shrink-0" />
-      )}
-      <div className="max-w-[80%]">
-        {twin && <p className="text-xs font-medium text-gray-500 mb-1">{twin.name}</p>}
-        <div className="bg-white border border-gray-200 text-sm px-4 py-2.5 rounded-2xl rounded-tl-sm text-gray-800 leading-relaxed">
-          {message.content}
+    <div className="px-6 py-3">
+      <div className="flex items-start gap-3">
+        {twin ? (
+          <TwinAvatar twin={twin} />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-forest/20 flex items-center justify-center flex-shrink-0">
+            <svg className="w-4 h-4 text-forest" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+            </svg>
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div
+            className={`border ${bubbleColor} rounded-2xl rounded-tl-sm px-5 py-4 text-sm text-forest/80 leading-relaxed`}
+          >
+            &ldquo;{message.content}&rdquo;
+          </div>
+          <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mt-2 ml-1">
+            {message.twinName?.toUpperCase()} {message.timestamp ? `• ${message.timestamp}` : ''}
+          </p>
         </div>
       </div>
     </div>
   )
 }
 
-export default function InterviewChat({ projectInfo, twins, onGenerateReport }: InterviewChatProps) {
-  const [messages, setMessages] = useState<Message[]>([])
+function TypingIndicator({ twin }: { twin: DigitalTwin | undefined }) {
+  return (
+    <div className="px-6 py-3 flex items-center gap-3">
+      {twin ? (
+        <TwinAvatar twin={twin} />
+      ) : (
+        <div className="w-8 h-8 rounded-full bg-forest/20 flex-shrink-0" />
+      )}
+      <div className="flex gap-1.5 px-5 py-4 bg-cream border border-amber-100 rounded-2xl rounded-tl-sm">
+        <span className="w-1.5 h-1.5 bg-forest/40 rounded-full animate-bounce [animation-delay:0ms]" />
+        <span className="w-1.5 h-1.5 bg-forest/40 rounded-full animate-bounce [animation-delay:150ms]" />
+        <span className="w-1.5 h-1.5 bg-forest/40 rounded-full animate-bounce [animation-delay:300ms]" />
+      </div>
+    </div>
+  )
+}
+
+function getContextHeading(twin: DigitalTwin | null, mode: 'problem' | 'value'): string {
+  if (!twin) {
+    return mode === 'problem'
+      ? 'Exploring the market pain points together.'
+      : 'Testing your value proposition as a group.'
+  }
+  if (mode === 'problem') {
+    return `Understanding ${twin.name.split(' ')[0]}'s workflow challenges.`
+  }
+  return `Exploring ${twin.name.split(' ')[0]}'s openness to new solutions.`
+}
+
+function getContextSubtitle(twin: DigitalTwin | null, mode: 'problem' | 'value'): string {
+  if (!twin) {
+    return mode === 'problem'
+      ? 'Ask all personas about their daily frustrations and workarounds.'
+      : 'Gauge collective willingness to adopt and pay for your solution.'
+  }
+  return mode === 'problem'
+    ? `${twin.name} is ready to discuss current challenges. Begin by asking about daily friction points.`
+    : `${twin.name} is evaluating your solution. Ask about appeal, pricing, and adoption barriers.`
+}
+
+export default function InterviewChat({
+  projectInfo,
+  twins,
+  initialMessages,
+  onGenerateReport,
+}: InterviewChatProps) {
+  const [messages, setMessages] = useState<Message[]>(initialMessages)
   const [input, setInput] = useState('')
-  const [selectedTwinId, setSelectedTwinId] = useState<string>('all')
+  const [selectedTwinId, setSelectedTwinId] = useState<string>(twins[0]?.id ?? 'all')
   const [mode, setMode] = useState<'problem' | 'value'>('problem')
   const [loading, setLoading] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
@@ -134,9 +156,12 @@ export default function InterviewChat({ projectInfo, twins, onGenerateReport }: 
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
 
+  const selectedTwin =
+    selectedTwinId === 'all' ? null : twins.find((t) => t.id === selectedTwinId) ?? null
+
   const sendMessage = async (text: string) => {
     if (!text.trim() || loading) return
-    const userMessage: Message = { role: 'user', content: text.trim() }
+    const userMessage: Message = { role: 'user', content: text.trim(), timestamp: formatTime() }
     const newMessages = [...messages, userMessage]
     setMessages(newMessages)
     setInput('')
@@ -151,12 +176,14 @@ export default function InterviewChat({ projectInfo, twins, onGenerateReport }: 
           twins,
           selectedTwinId,
           mode,
-          messages: newMessages.slice(0, -1), // history before this message
+          messages: newMessages.slice(0, -1),
           userMessage: text.trim(),
         }),
       })
       const data = await res.json()
       if (data.error) throw new Error(data.error)
+
+      const now = new Date()
 
       if (selectedTwinId === 'all') {
         const parsed: Message[] = data.response
@@ -170,29 +197,47 @@ export default function InterviewChat({ projectInfo, twins, onGenerateReport }: 
               content: match[2].trim(),
               twinId: twin?.id ?? 'all',
               twinName: match[1],
+              timestamp: formatTime(now),
             }
           })
           .filter(Boolean) as Message[]
 
-        setMessages([...newMessages, ...(parsed.length > 0 ? parsed : [{
-          role: 'assistant' as const,
-          content: data.response,
-          twinId: 'all',
-          twinName: 'All Twins',
-        }])])
+        setMessages([
+          ...newMessages,
+          ...(parsed.length > 0
+            ? parsed
+            : [
+                {
+                  role: 'assistant' as const,
+                  content: data.response,
+                  twinId: 'all',
+                  twinName: 'All Twins',
+                  timestamp: formatTime(now),
+                },
+              ]),
+        ])
       } else {
-        const selectedTwin = twins.find((t) => t.id === selectedTwinId)
-        setMessages([...newMessages, {
-          role: 'assistant',
-          content: data.response,
-          twinId: selectedTwinId,
-          twinName: selectedTwin?.name,
-        }])
+        const twin = twins.find((t) => t.id === selectedTwinId)
+        setMessages([
+          ...newMessages,
+          {
+            role: 'assistant' as const,
+            content: data.response,
+            twinId: selectedTwinId,
+            twinName: twin?.name,
+            timestamp: formatTime(now),
+          },
+        ])
       }
     } catch {
       setMessages([
         ...newMessages,
-        { role: 'assistant', content: 'Sorry, something went wrong. Please try again.', twinId: selectedTwinId },
+        {
+          role: 'assistant' as const,
+          content: 'Sorry, something went wrong. Please try again.',
+          twinId: selectedTwinId,
+          timestamp: formatTime(),
+        },
       ])
     } finally {
       setLoading(false)
@@ -207,153 +252,211 @@ export default function InterviewChat({ projectInfo, twins, onGenerateReport }: 
     }
   }
 
-  const canGenerateReport = messages.filter((m) => m.role === 'user').length >= 2
+  const userQCount = messages.filter((m) => m.role === 'user').length
+  const canReport = userQCount >= 2
+  const sessionPct = Math.min(Math.round((userQCount / 6) * 100), 100)
 
   return (
-    <div className="max-w-3xl mx-auto">
-      {/* Header controls */}
-      <div className="bg-white border border-gray-200 rounded-xl p-4 mb-4">
-        <div className="flex flex-col sm:flex-row gap-4">
-          {/* Mode toggle */}
-          <div>
-            <p className="text-xs font-medium text-gray-500 mb-2">Interview mode</p>
-            <div className="flex rounded-lg border border-gray-200 overflow-hidden w-fit">
-              {(['problem', 'value'] as const).map((m) => (
-                <button
-                  key={m}
-                  onClick={() => setMode(m)}
-                  className={`px-3 py-1.5 text-xs font-medium transition-colors ${
-                    mode === m
-                      ? 'bg-black text-white'
-                      : 'bg-white text-gray-500 hover:bg-gray-50'
-                  }`}
-                >
-                  {m === 'problem' ? 'Problem Validation' : 'Value Proposition'}
-                </button>
-              ))}
-            </div>
-          </div>
+    <div className="flex h-[calc(100vh-56px)]">
+      {/* Sidebar */}
+      <aside className="w-64 flex-shrink-0 bg-white border-r border-mint-dark flex flex-col overflow-hidden hidden sm:flex">
+        <div className="p-5 border-b border-mint-dark">
+          <h3 className="font-bold text-forest text-sm">Market Twins</h3>
+          <p className="text-xs text-forest/40 mt-0.5">Select a persona to begin the validation interview.</p>
+        </div>
 
-          {/* Twin selector */}
-          <div>
-            <p className="text-xs font-medium text-gray-500 mb-2">Speaking with</p>
-            <div className="flex flex-wrap gap-1.5">
+        <div className="flex-1 overflow-y-auto p-3 space-y-1 scrollbar-thin">
+          {/* All twins option */}
+          <button
+            onClick={() => setSelectedTwinId('all')}
+            className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-colors text-left ${
+              selectedTwinId === 'all'
+                ? 'bg-mint border border-forest/15'
+                : 'hover:bg-mint/50'
+            }`}
+          >
+            <div className="w-9 h-9 rounded-full bg-forest/10 flex items-center justify-center flex-shrink-0">
+              <svg className="w-4 h-4 text-forest/60" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z" />
+              </svg>
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-forest truncate">Group Interview</p>
+              <p className="text-[10px] text-forest/40 uppercase tracking-wider">All Twins</p>
+            </div>
+          </button>
+
+          {twins.map((twin) => {
+            const idx = getTwinIndex(twin.id)
+            const colorClass = TWIN_SIDEBAR_COLORS[idx] ?? TWIN_SIDEBAR_COLORS[0]
+            const isSelected = selectedTwinId === twin.id
+            return (
               <button
-                onClick={() => setSelectedTwinId('all')}
-                className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                  selectedTwinId === 'all'
-                    ? 'bg-gray-900 text-white border-gray-900'
-                    : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
+                key={twin.id}
+                onClick={() => setSelectedTwinId(twin.id)}
+                className={`w-full flex items-center gap-3 px-3 py-3 rounded-xl transition-colors text-left ${
+                  isSelected ? 'bg-mint border border-forest/15' : 'hover:bg-mint/50'
                 }`}
               >
-                All Twins
+                <div
+                  className={`w-9 h-9 rounded-full ${colorClass} flex items-center justify-center text-xs font-bold flex-shrink-0`}
+                >
+                  {getInitials(twin.name)}
+                </div>
+                <div className="min-w-0">
+                  <p className="text-xs font-bold text-forest truncate">{twin.name}</p>
+                  <p className="text-[10px] text-forest/40 uppercase tracking-wider truncate">
+                    {twin.occupation}
+                  </p>
+                </div>
               </button>
-              {twins.map((twin) => {
-                const colors = TWIN_COLORS[twin.id] ?? TWIN_COLORS.twin1
-                return (
-                  <button
-                    key={twin.id}
-                    onClick={() => setSelectedTwinId(twin.id)}
-                    className={`px-3 py-1.5 text-xs font-medium rounded-lg border transition-colors ${
-                      selectedTwinId === twin.id
-                        ? `${colors.badge} border-transparent`
-                        : 'bg-white text-gray-500 border-gray-200 hover:bg-gray-50'
-                    }`}
-                  >
-                    {twin.name.split(' ')[0]}
-                  </button>
-                )
-              })}
+            )
+          })}
+        </div>
+
+        {/* Generate new twin (decorative) */}
+        <div className="p-3 border-t border-mint-dark">
+          <button
+            disabled
+            className="w-full flex items-center gap-2 px-3 py-2.5 rounded-lg text-forest/30 text-xs font-medium cursor-not-allowed"
+          >
+            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+            Generate New Twin
+          </button>
+        </div>
+      </aside>
+
+      {/* Main interview area */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Interview header */}
+        <div className="bg-white border-b border-mint-dark px-6 py-4 flex items-center justify-between flex-shrink-0">
+          <div className="flex items-center gap-3">
+            <svg className="w-5 h-5 text-forest/40" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
+            </svg>
+            <h2 className="font-bold text-forest text-sm">
+              Interview with{' '}
+              {selectedTwinId === 'all' ? 'All Twins' : selectedTwin?.name ?? ''}
+            </h2>
+          </div>
+
+          {/* Mode tabs + session progress */}
+          <div className="flex items-center gap-1 rounded-xl overflow-hidden border border-forest/10 bg-mint">
+            {(['problem', 'value'] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-4 py-2 text-xs font-bold tracking-wider uppercase transition-colors ${
+                  mode === m
+                    ? 'bg-forest text-white'
+                    : 'text-forest/40 hover:text-forest/70'
+                }`}
+              >
+                {m === 'problem' ? 'Problem Validation' : 'Value Proposition'}
+              </button>
+            ))}
+            <div className="px-4 py-2 flex items-center gap-2 border-l border-forest/10">
+              <div className="w-16 h-1 bg-forest/10 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-forest rounded-full transition-all"
+                  style={{ width: `${sessionPct}%` }}
+                />
+              </div>
+              <span className="text-[10px] font-bold text-forest/30 uppercase tracking-wider whitespace-nowrap">
+                Session Progress
+              </span>
             </div>
           </div>
         </div>
-      </div>
 
-      {/* Chat area */}
-      <div className="bg-gray-50 border border-gray-200 rounded-xl overflow-hidden">
+        {/* Context heading (shown when no messages) */}
+        {messages.length === 0 && (
+          <div className="px-10 py-10 text-center flex-shrink-0">
+            <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mb-3">
+              {mode === 'problem' ? 'Phase 01: Context Exploration' : 'Phase 02: Value Assessment'}
+            </p>
+            <h3 className="text-2xl sm:text-3xl font-black text-forest leading-tight mb-3 max-w-lg mx-auto">
+              {getContextHeading(selectedTwin, mode)}
+            </h3>
+            <p className="text-sm text-forest/40 max-w-md mx-auto">
+              {getContextSubtitle(selectedTwin, mode)}
+            </p>
+          </div>
+        )}
+
         {/* Messages */}
-        <div className="h-80 sm:h-96 overflow-y-auto p-4 space-y-4 scrollbar-thin">
-          {messages.length === 0 && (
-            <div className="h-full flex items-center justify-center text-center">
-              <div>
-                <div className="w-10 h-10 rounded-full bg-gray-200 flex items-center justify-center mx-auto mb-3">
-                  <svg className="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                  </svg>
-                </div>
-                <p className="text-sm text-gray-500">Start asking questions below.</p>
-                <p className="text-xs text-gray-400 mt-1">Use the suggested questions or write your own.</p>
-              </div>
-            </div>
-          )}
+        <div className="flex-1 overflow-y-auto py-4 scrollbar-thin">
           {messages.map((msg, i) => (
-            <MessageBubble key={i} message={msg} twins={twins} />
+            <ChatBubble key={i} message={msg} twins={twins} />
           ))}
           {loading && (
-            <div className="flex gap-2 items-center">
-              <div className="w-7 h-7 rounded-full bg-gray-200 flex-shrink-0 animate-pulse" />
-              <div className="flex gap-1 px-4 py-3 bg-white border border-gray-200 rounded-2xl rounded-tl-sm">
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:0ms]" />
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:150ms]" />
-                <span className="w-1.5 h-1.5 bg-gray-400 rounded-full animate-bounce [animation-delay:300ms]" />
-              </div>
-            </div>
+            <TypingIndicator twin={selectedTwin ?? twins[0]} />
           )}
           <div ref={bottomRef} />
         </div>
 
         {/* Suggested questions */}
-        <div className="border-t border-gray-200 bg-white px-4 py-3">
-          <p className="text-xs font-medium text-gray-400 mb-2">Suggested questions</p>
-          <div className="flex flex-wrap gap-1.5">
-            {SUGGESTED_QUESTIONS[mode].map((q) => (
-              <button
-                key={q}
-                onClick={() => setInput(q)}
-                className="text-xs px-2.5 py-1 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-full text-gray-600 transition-colors"
-              >
-                {q}
-              </button>
-            ))}
-          </div>
+        <div className="px-6 py-3 border-t border-mint-dark bg-white/60 flex flex-wrap gap-2">
+          {SUGGESTED[mode].map((q) => (
+            <button
+              key={q}
+              onClick={() => setInput(q.replace(/^"|"$/g, ''))}
+              className="text-xs px-3 py-1.5 rounded-full border border-forest/15 text-forest/50 hover:border-forest/40 hover:text-forest/70 transition-colors bg-white"
+            >
+              {q}
+            </button>
+          ))}
         </div>
 
-        {/* Input */}
-        <div className="border-t border-gray-200 bg-white px-4 py-3 flex gap-2 items-end">
+        {/* Input bar */}
+        <div className="bg-forest/95 px-4 py-3 flex gap-3 items-end flex-shrink-0">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Ask a question... (Enter to send, Shift+Enter for newline)"
+            placeholder="Type your follow-up question here..."
             rows={1}
-            className="flex-1 text-sm border border-gray-200 rounded-lg px-3 py-2 outline-none focus:border-gray-400 focus:ring-2 focus:ring-gray-100 resize-none bg-white text-gray-900 placeholder-gray-400"
-            style={{ minHeight: '38px', maxHeight: '120px' }}
+            className="flex-1 bg-transparent text-white placeholder-white/30 text-sm outline-none resize-none border-none py-1.5"
+            style={{ minHeight: '32px', maxHeight: '100px' }}
           />
+          {/* Mic icon (decorative) */}
+          <button className="text-white/30 hover:text-white/60 transition-colors flex-shrink-0 mb-1">
+            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 18.75a6 6 0 006-6v-1.5m-6 7.5a6 6 0 01-6-6v-1.5m6 7.5v3.75m-3.75 0h7.5M12 15.75a3 3 0 01-3-3V4.5a3 3 0 116 0v8.25a3 3 0 01-3 3z" />
+            </svg>
+          </button>
           <button
             onClick={() => sendMessage(input)}
             disabled={!input.trim() || loading}
-            className="px-4 py-2 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex-shrink-0"
+            className="w-9 h-9 rounded-lg bg-white/15 hover:bg-white/25 disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center transition-colors flex-shrink-0"
           >
-            Send
+            <svg className="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+            </svg>
           </button>
         </div>
-      </div>
 
-      {/* Generate Report */}
-      <div className="mt-6 flex items-center justify-between">
-        <p className="text-xs text-gray-400">
-          {messages.filter((m) => m.role === 'user').length} question
-          {messages.filter((m) => m.role === 'user').length !== 1 ? 's' : ''} asked
-          {!canGenerateReport && ' — ask at least 2 to generate a report'}
-        </p>
-        <button
-          onClick={() => onGenerateReport(messages)}
-          disabled={!canGenerateReport}
-          className="px-6 py-2.5 bg-black text-white text-sm font-medium rounded-lg hover:bg-gray-800 transition-colors disabled:opacity-40 disabled:cursor-not-allowed focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-900"
-        >
-          Generate Report
-        </button>
+        {/* Generate report bar */}
+        <div className="bg-white border-t border-mint-dark px-6 py-2.5 flex items-center justify-between">
+          <p className="text-[10px] font-bold uppercase tracking-widest text-forest/30">
+            Press <kbd className="bg-mint-dark text-forest/50 px-1.5 py-0.5 rounded text-[10px] font-mono">SHIFT</kbd>{' '}
+            +{' '}
+            <kbd className="bg-mint-dark text-forest/50 px-1.5 py-0.5 rounded text-[10px] font-mono">ENTER</kbd>{' '}
+            FOR A NEW LINE
+          </p>
+          <button
+            onClick={() => onGenerateReport(messages)}
+            disabled={!canReport}
+            className="text-xs font-bold text-forest/40 hover:text-forest disabled:opacity-30 disabled:cursor-not-allowed transition-colors underline underline-offset-2"
+          >
+            {canReport
+              ? `Generate Report (${userQCount} questions)`
+              : `Ask ${2 - userQCount} more to generate report`}
+          </button>
+        </div>
       </div>
     </div>
   )

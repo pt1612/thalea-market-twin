@@ -3,6 +3,7 @@ export interface ProjectInfo {
   problem: string
   target: string
   solution: string
+  twinCount: number
 }
 
 export interface DigitalTwin {
@@ -23,6 +24,7 @@ export interface Message {
   content: string
   twinId?: string
   twinName?: string
+  timestamp?: string
 }
 
 export interface Report {
@@ -35,26 +37,58 @@ export interface Report {
   summary: string
 }
 
-export const TWIN_COLORS: Record<string, { bg: string; border: string; text: string; badge: string; dot: string }> = {
-  twin1: {
-    bg: 'bg-blue-50',
-    border: 'border-blue-200',
-    text: 'text-blue-700',
-    badge: 'bg-blue-100 text-blue-700',
-    dot: 'bg-blue-500',
-  },
-  twin2: {
-    bg: 'bg-emerald-50',
-    border: 'border-emerald-200',
-    text: 'text-emerald-700',
-    badge: 'bg-emerald-100 text-emerald-700',
-    dot: 'bg-emerald-500',
-  },
-  twin3: {
-    bg: 'bg-violet-50',
-    border: 'border-violet-200',
-    text: 'text-violet-700',
-    badge: 'bg-violet-100 text-violet-700',
-    dot: 'bg-violet-500',
-  },
+// Avatar colors for sidebar (by index position)
+export const TWIN_SIDEBAR_COLORS = [
+  'bg-forest text-white',
+  'bg-teal-700 text-white',
+  'bg-slate-700 text-white',
+  'bg-amber-700 text-white',
+  'bg-rose-700 text-white',
+]
+
+export const TWIN_SIDEBAR_BORDERS = [
+  'border-forest/30',
+  'border-teal-700/30',
+  'border-slate-700/30',
+  'border-amber-700/30',
+  'border-rose-700/30',
+]
+
+export function getTwinIndex(id: string): number {
+  const match = id.match(/\d+/)
+  return match ? parseInt(match[0]) - 1 : 0
+}
+
+export function getTechLabel(level: 'low' | 'medium' | 'high'): string {
+  return { low: 'Novice', medium: 'Adept', high: 'Expert' }[level]
+}
+
+export function getTechProgress(level: 'low' | 'medium' | 'high'): number {
+  return { low: 33, medium: 66, high: 100 }[level]
+}
+
+export function getAffinityBadge(level: 'low' | 'medium' | 'high'): string {
+  return { low: 'EARLY ADOPTER', medium: 'MODERATE', high: 'HIGH AFFINITY' }[level]
+}
+
+export function getBudgetBadge(budget: string): string {
+  const lower = budget.toLowerCase()
+  const num = parseInt(budget.replace(/[^0-9]/g, '')) || 0
+  if (num >= 100 || lower.includes('premium') || lower.includes('enterprise')) return '€€€ PREMIUM'
+  if (num >= 50 || lower.includes('mid')) return '€€ MID-TIER'
+  return '€ BUDGET'
+}
+
+export function getInitials(name: string): string {
+  return name
+    .split(' ')
+    .map((n) => n[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+}
+
+export function formatTime(date?: Date): string {
+  const d = date || new Date()
+  return d.toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit', hour12: true })
 }

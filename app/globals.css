@@ -2,17 +2,23 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 @layer base {
   html {
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+  }
+  body {
+    background-color: #eef7f3;
+    color: #0a1a12;
   }
 }
 
 @layer utilities {
   .scrollbar-thin {
     scrollbar-width: thin;
-    scrollbar-color: #d1d5db transparent;
+    scrollbar-color: #a8d8c5 transparent;
   }
   .scrollbar-thin::-webkit-scrollbar {
     width: 4px;
@@ -21,7 +27,24 @@
     background: transparent;
   }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    background-color: #d1d5db;
+    background-color: #a8d8c5;
     border-radius: 2px;
+  }
+
+  .input-underline {
+    @apply w-full bg-transparent border-0 border-b border-forest/20 focus:border-forest focus:outline-none pb-3 pt-1 text-lg text-forest/90 placeholder-forest/25 transition-colors;
+  }
+
+  .nav-link {
+    @apply text-sm font-medium text-forest/50 hover:text-forest transition-colors relative pb-0.5;
+  }
+
+  .nav-link-active {
+    @apply text-forest font-semibold;
+  }
+
+  .nav-link-active::after {
+    content: '';
+    @apply absolute bottom-0 left-0 right-0 h-0.5 bg-forest rounded-full;
   }
 }
