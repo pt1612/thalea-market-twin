@@ -63,7 +63,7 @@ function MessageBubble({ message, twins }: { message: Message; twins: DigitalTwi
     const lines = message.content.split(/\n\n/)
     const parsed: { name: string; text: string; twin?: DigitalTwin }[] = []
     for (const line of lines) {
-      const match = line.match(/^\*\*(.+?)\*\*:\s*(.+)$/s)
+      const match = line.match(/^\*\*(.+?)\*\*:\s*([\s\S]+)$/)
       if (match) {
         const twinMatch = twins.find((t) => t.name === match[1])
         parsed.push({ name: match[1], text: match[2].trim(), twin: twinMatch })
@@ -158,14 +158,37 @@ export default function InterviewChat({ projectInfo, twins, onGenerateReport }: 
       const data = await res.json()
       if (data.error) throw new Error(data.error)
 
-      const selectedTwin = twins.find((t) => t.id === selectedTwinId)
-      const assistantMessage: Message = {
-        role: 'assistant',
-        content: data.response,
-        twinId: selectedTwinId,
-        twinName: selectedTwinId === 'all' ? 'All Twins' : selectedTwin?.name,
+      if (selectedTwinId === 'all') {
+        const parsed: Message[] = data.response
+          .split(/\n\n/)
+          .map((line: string) => {
+            const match = line.match(/^\*\*(.+?)\*\*:\s*([\s\S]+)$/)
+            if (!match) return null
+            const twin = twins.find((t) => t.name === match[1])
+            return {
+              role: 'assistant' as const,
+              content: match[2].trim(),
+              twinId: twin?.id ?? 'all',
+              twinName: match[1],
+            }
+          })
+          .filter(Boolean) as Message[]
+
+        setMessages([...newMessages, ...(parsed.length > 0 ? parsed : [{
+          role: 'assistant' as const,
+          content: data.response,
+          twinId: 'all',
+          twinName: 'All Twins',
+        }])])
+      } else {
+        const selectedTwin = twins.find((t) => t.id === selectedTwinId)
+        setMessages([...newMessages, {
+          role: 'assistant',
+          content: data.response,
+          twinId: selectedTwinId,
+          twinName: selectedTwin?.name,
+        }])
       }
-      setMessages([...newMessages, assistantMessage])
     } catch {
       setMessages([
         ...newMessages,
