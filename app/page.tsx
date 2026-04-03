@@ -86,6 +86,7 @@ export default function Home() {
             twins={twins}
             initialMessages={messages}
             onGenerateReport={handleGenerateReport}
+            onBack={() => goToStep(2)}
           />
         )}
         {step === 4 && projectInfo && (

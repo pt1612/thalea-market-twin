@@ -6,8 +6,8 @@ import {
   getInitials,
   getTechLabel,
   getTechProgress,
-  getAffinityBadge,
-  getBudgetBadge,
+  getAffinityDisplay,
+  getBudgetDisplay,
   TWIN_SIDEBAR_COLORS,
   getTwinIndex,
 } from '@/lib/types'
@@ -50,14 +50,8 @@ function TwinCard({ twin }: { twin: DigitalTwin }) {
   const avatarColor = TWIN_SIDEBAR_COLORS[idx] ?? TWIN_SIDEBAR_COLORS[0]
   const techLabel = getTechLabel(twin.techSavviness)
   const techPct = getTechProgress(twin.techSavviness)
-  const affinityBadge = getAffinityBadge(twin.techSavviness)
-  const budgetBadge = getBudgetBadge(twin.budget)
-
-  const affinityColors: Record<string, string> = {
-    'HIGH AFFINITY': 'bg-emerald-50 text-emerald-700 border-emerald-200',
-    MODERATE: 'bg-slate-50 text-slate-600 border-slate-200',
-    'EARLY ADOPTER': 'bg-blue-50 text-blue-700 border-blue-200',
-  }
+  const { text: affinityText, className: affinityClass } = getAffinityDisplay(twin.affinityLabel)
+  const budgetText = getBudgetDisplay(twin.budgetTier)
 
   return (
     <div className="bg-white rounded-2xl p-6 flex flex-col gap-0 border border-forest/5 hover:border-forest/15 transition-colors">
@@ -70,14 +64,12 @@ function TwinCard({ twin }: { twin: DigitalTwin }) {
         </div>
         <div className="flex flex-col items-end gap-1">
           <span
-            className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${
-              affinityColors[affinityBadge] ?? 'bg-gray-50 text-gray-600 border-gray-200'
-            }`}
+            className={`text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full border ${affinityClass}`}
           >
-            {affinityBadge}
+            {affinityText}
           </span>
           <span className="text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-forest text-white">
-            {budgetBadge}
+            {budgetText}
           </span>
         </div>
       </div>
@@ -87,6 +79,14 @@ function TwinCard({ twin }: { twin: DigitalTwin }) {
       <p className="text-sm text-forest/40 mt-0.5 mb-5">
         Age {twin.age} • {twin.occupation}
       </p>
+
+      {/* Background */}
+      <div className="mb-5">
+        <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mb-2.5">
+          Background
+        </p>
+        <p className="text-xs text-forest/60 leading-relaxed">{twin.background}</p>
+      </div>
 
       {/* Pain points */}
       <div className="mb-5">

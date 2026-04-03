@@ -4,6 +4,45 @@ import type { DigitalTwin, Message, ProjectInfo } from '@/lib/types'
 
 const groq = new Groq({ apiKey: process.env.GROQ_API_KEY })
 
+const SKEPTICISM_INSTRUCTIONS = `
+BEHAVIOR RULES — follow these strictly:
+- Be realistic and skeptical, NOT enthusiastic or cheerful by default
+- Raise concrete objections: cost, switching effort, trust in a new product, hidden complexity
+- Push back if a question sounds like it's fishing for validation — say so
+- Contradict other twins when you genuinely would disagree, based on your profile
+- Express uncertainty when relevant ("I'm not sure this would actually work for me because...")
+- Never give a glowing endorsement unless there is a truly compelling reason rooted in your specific pain points
+- Keep responses to 2-4 sentences — be direct and opinionated, not polite and vague
+`
+
+function buildSingleTwinPrompt(
+  twin: DigitalTwin,
+  projectInfo: ProjectInfo,
+  modeDescription: string,
+): string {
+  return `You are ${twin.name}, a digital twin customer being interviewed about a startup product.
+
+YOUR PROFILE:
+Age: ${twin.age}
+Occupation: ${twin.occupation}
+Background: ${twin.background}
+Pain points: ${twin.painPoints.join('; ')}
+Motivations: ${twin.motivations.join('; ')}
+Tech savviness: ${twin.techSavviness}
+Monthly budget for tools: ${twin.budget}
+Personality: ${twin.personality}
+
+THE PRODUCT BEING EVALUATED:
+Name: ${projectInfo.name}
+Problem: ${projectInfo.problem}
+Solution: ${projectInfo.solution}
+Target audience: ${projectInfo.target}
+
+Interview mode: ${modeDescription}
+${SKEPTICISM_INSTRUCTIONS}
+Respond in first person as ${twin.name}. Do NOT start with your name. Be direct.`
+}
+
 export async function POST(request: NextRequest) {
   try {
     const {
@@ -24,84 +63,65 @@ export async function POST(request: NextRequest) {
 
     const modeDescription =
       mode === 'problem'
-        ? 'Problem Validation — focus on how intense the problem is, how often it occurs, current workarounds, and frustrations'
-        : 'Value Proposition — focus on appeal of the solution, willingness to pay, adoption barriers, and desired features'
+        ? 'Problem Validation — focus on how intense the problem is, how often it occurs, current workarounds, and what has been tried before'
+        : 'Value Proposition — focus on the appeal (or lack thereof) of the proposed solution, willingness to pay, adoption barriers, and trust'
 
-    let systemPrompt = ''
+    const groqHistory = messages.map((m) => ({
+      role: m.role as 'user' | 'assistant',
+      content: m.content,
+    }))
 
+    // GROUP MODE: one parallel Groq call per twin
     if (selectedTwinId === 'all') {
-      const twinDescriptions = twins
-        .map(
-          (t) =>
-            `**${t.name}** (${t.age}, ${t.occupation})\nBackground: ${t.background}\nPain points: ${t.painPoints.join('; ')}\nMotivations: ${t.motivations.join('; ')}\nPersonality: ${t.personality}\nBudget: ${t.budget}\nTech savviness: ${t.techSavviness}`
-        )
-        .join('\n\n')
+      const twinResponses = await Promise.all(
+        twins.map(async (twin) => {
+          const systemPrompt = buildSingleTwinPrompt(twin, projectInfo, modeDescription)
 
-      const formatLines = twins
-        .map((t) => `**${t.name}:** [their response in 2-3 sentences]`)
-        .join('\n\n')
+          // Filter conversation history to only this twin's messages for context
+          const twinHistory = messages
+            .filter((m) => m.role === 'user' || m.twinId === twin.id)
+            .map((m) => ({
+              role: m.role as 'user' | 'assistant',
+              content: m.content,
+            }))
 
-      systemPrompt = `You are facilitating a group interview with ${twins.length} digital twin customers evaluating a startup idea.
+          const completion = await groq.chat.completions.create({
+            model: 'llama-3.3-70b-versatile',
+            messages: [
+              { role: 'system', content: systemPrompt },
+              ...twinHistory,
+              { role: 'user', content: userMessage },
+            ],
+            temperature: 0.9,
+            max_tokens: 300,
+          })
 
-THE PRODUCT:
-Name: ${projectInfo.name}
-Problem: ${projectInfo.problem}
-Solution: ${projectInfo.solution}
-Target audience: ${projectInfo.target}
+          const text = completion.choices[0]?.message?.content?.trim() ?? ''
+          return { twinId: twin.id, twinName: twin.name, text }
+        })
+      )
 
-THE DIGITAL TWINS:
-${twinDescriptions}
-
-Interview mode: ${modeDescription}
-
-Respond as all ${twins.length} twins in sequence. Each gives their own authentic, distinct perspective based on their unique background and personality. Format EXACTLY as:
-
-${formatLines}
-
-Be specific, realistic, and sometimes skeptical. Show genuine variety in perspectives — they should not all agree.`
-    } else {
-      const twin = twins.find((t) => t.id === selectedTwinId)
-      if (!twin) throw new Error('Twin not found')
-
-      systemPrompt = `You are ${twin.name}, a digital twin customer being interviewed about a startup product.
-
-YOUR PROFILE:
-Age: ${twin.age}
-Occupation: ${twin.occupation}
-Background: ${twin.background}
-Pain points: ${twin.painPoints.join('; ')}
-Motivations: ${twin.motivations.join('; ')}
-Tech savviness: ${twin.techSavviness}
-Budget: ${twin.budget}
-Personality: ${twin.personality}
-
-THE PRODUCT BEING EVALUATED:
-Name: ${projectInfo.name}
-Problem: ${projectInfo.problem}
-Solution: ${projectInfo.solution}
-Target audience: ${projectInfo.target}
-
-Interview mode: ${modeDescription}
-
-Respond authentically as ${twin.name}. Be specific, realistic, and true to your personality and background. Show genuine skepticism or enthusiasm where appropriate. Keep responses to 2-4 sentences.`
+      return NextResponse.json({ responses: twinResponses })
     }
 
-    const groqMessages = [
-      ...messages.map((m) => ({
-        role: m.role as 'user' | 'assistant',
-        content: m.content,
-      })),
-      { role: 'user' as const, content: userMessage },
-    ]
+    // SINGLE TWIN MODE
+    const twin = twins.find((t) => t.id === selectedTwinId)
+    if (!twin) throw new Error('Twin not found')
+
+    const systemPrompt = buildSingleTwinPrompt(twin, projectInfo, modeDescription)
 
     const completion = await groq.chat.completions.create({
       model: 'llama-3.3-70b-versatile',
-      messages: [{ role: 'system', content: systemPrompt }, ...groqMessages],
-      temperature: 0.85,
-      max_tokens: 800,
+      messages: [
+        { role: 'system', content: systemPrompt },
+        ...groqHistory,
+        { role: 'user', content: userMessage },
+      ],
+      temperature: 0.9,
+      max_tokens: 350,
     })
 
-    const content = completion.choices[0]?.message?.content
+    const content = completion.choices[0]?.message?.content?.trim()
     if (!content) throw new Error('No content returned')
 
     return NextResponse.json({ response: content })

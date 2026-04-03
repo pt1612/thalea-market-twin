@@ -16,6 +16,8 @@ export interface DigitalTwin {
   motivations: string[]
   techSavviness: 'low' | 'medium' | 'high'
   budget: string
+  budgetTier: 'low' | 'mid' | 'premium'
+  affinityLabel: 'high_affinity' | 'moderate' | 'early_adopter'
   personality: string
 }
 
@@ -37,21 +39,12 @@ export interface Report {
   summary: string
 }
 
-// Avatar colors for sidebar (by index position)
 export const TWIN_SIDEBAR_COLORS = [
   'bg-forest text-white',
   'bg-teal-700 text-white',
   'bg-slate-700 text-white',
   'bg-amber-700 text-white',
   'bg-rose-700 text-white',
-]
-
-export const TWIN_SIDEBAR_BORDERS = [
-  'border-forest/30',
-  'border-teal-700/30',
-  'border-slate-700/30',
-  'border-amber-700/30',
-  'border-rose-700/30',
 ]
 
 export function getTwinIndex(id: string): number {
@@ -67,16 +60,29 @@ export function getTechProgress(level: 'low' | 'medium' | 'high'): number {
   return { low: 33, medium: 66, high: 100 }[level]
 }
 
-export function getAffinityBadge(level: 'low' | 'medium' | 'high'): string {
-  return { low: 'EARLY ADOPTER', medium: 'MODERATE', high: 'HIGH AFFINITY' }[level]
+export function getAffinityDisplay(label: 'high_affinity' | 'moderate' | 'early_adopter'): {
+  text: string
+  className: string
+} {
+  const map = {
+    high_affinity: {
+      text: 'HIGH AFFINITY',
+      className: 'bg-emerald-50 text-emerald-700 border-emerald-200',
+    },
+    moderate: {
+      text: 'MODERATE',
+      className: 'bg-slate-50 text-slate-600 border-slate-200',
+    },
+    early_adopter: {
+      text: 'EARLY ADOPTER',
+      className: 'bg-blue-50 text-blue-700 border-blue-200',
+    },
+  }
+  return map[label] ?? map.moderate
 }
 
-export function getBudgetBadge(budget: string): string {
-  const lower = budget.toLowerCase()
-  const num = parseInt(budget.replace(/[^0-9]/g, '')) || 0
-  if (num >= 100 || lower.includes('premium') || lower.includes('enterprise')) return '€€€ PREMIUM'
-  if (num >= 50 || lower.includes('mid')) return '€€ MID-TIER'
-  return '€ BUDGET'
+export function getBudgetDisplay(tier: 'low' | 'mid' | 'premium'): string {
+  return { low: '€ BUDGET', mid: '€€ MID-TIER', premium: '€€€ PREMIUM' }[tier]
 }
 
 export function getInitials(name: string): string {
