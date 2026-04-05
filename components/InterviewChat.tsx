@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import type { DigitalTwin, Message, ProjectInfo } from '@/lib/types'
 import { getInitials, TWIN_SIDEBAR_COLORS, getTwinIndex, formatTime } from '@/lib/types'
 
@@ -12,21 +12,35 @@ interface InterviewChatProps {
   onBack: () => void
 }
 
-const SUGGESTED: Record<'problem' | 'value', string[]> = {
-  problem: [
-    'What is your current workaround?',
-    'Who else feels this pain in your team?',
-    "What's the #1 feature you need?",
-    'How often does this block your work?',
-    'Have you ever paid for a solution before?',
-  ],
-  value: [
-    'Would you use this today if it existed?',
-    'What would you pay per month?',
-    'What would stop you from switching?',
-    'Who else would benefit from this?',
-    'How does this compare to your current tool?',
-  ],
+const QUESTION_GUIDELINES: Record<
+  'problem' | 'value',
+  { intro: string; questions: { text: string; hint: string }[] }
+> = {
+  problem: {
+    intro:
+      'Focus on pain intensity, frequency, and current workarounds — before mentioning your solution.',
+    questions: [
+      { text: 'Walk me through the last time this cost you real time or money.', hint: 'urgency' },
+      { text: "What's your current workaround, and what do you hate most about it?", hint: 'workaround' },
+      { text: 'How often does this actually block your work — daily, weekly?', hint: 'frequency' },
+      { text: 'Who else in your team feels this, and is it a shared priority?', hint: 'scope' },
+      { text: 'Have you ever tried to fix this before? What stopped you?', hint: 'history' },
+    ],
+  },
+  value: {
+    intro:
+      'Test willingness to pay, switching friction, and how well the solution fits their specific need.',
+    questions: [
+      { text: 'If this existed today, what would make you try it in the next 30 days?', hint: 'adoption urgency' },
+      { text: 'What would you expect to pay for this, and what makes that feel worth it?', hint: 'WTP' },
+      { text: "What's your biggest concern before committing to a new tool like this?", hint: 'barriers' },
+      { text: 'Who else would need to approve this, and what would they ask?', hint: 'decision process' },
+      {
+        text: 'What would this need to do better than your current approach to justify switching?',
+        hint: 'switching threshold',
+      },
+    ],
+  },
 }
 
 const BUBBLE_COLORS = [
@@ -118,12 +132,37 @@ export default function InterviewChat({
   const [selectedTwinId, setSelectedTwinId] = useState<string>('all')
   const [mode, setMode] = useState<'problem' | 'value'>('problem')
   const [loading, setLoading] = useState(false)
+  const [guidelinesOpen, setGuidelinesOpen] = useState(false)
   const bottomRef = useRef<HTMLDivElement>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
+  const guidelinesPanelRef = useRef<HTMLDivElement>(null)
+  const guidelinesButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: 'smooth' })
   }, [messages, loading])
+
+  useEffect(() => {
+    if (!guidelinesOpen) return
+    const handler = (e: MouseEvent) => {
+      if (
+        guidelinesPanelRef.current &&
+        !guidelinesPanelRef.current.contains(e.target as Node) &&
+        guidelinesButtonRef.current &&
+        !guidelinesButtonRef.current.contains(e.target as Node)
+      ) {
+        setGuidelinesOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [guidelinesOpen])
+
+  const pickQuestion = useCallback((text: string) => {
+    setInput(text)
+    setGuidelinesOpen(false)
+    inputRef.current?.focus()
+  }, [])
 
   const selectedTwin =
     selectedTwinId === 'all' ? null : twins.find((t) => t.id === selectedTwinId) ?? null
@@ -274,9 +313,10 @@ export default function InterviewChat({
       </aside>
 
       {/* Main area */}
-      <div className="flex-1 flex flex-col min-w-0">
-        {/* Header */}
-        <div className="bg-white border-b border-mint-dark px-6 py-4 flex items-center justify-between flex-shrink-0 gap-3">
+      <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
+
+        {/* Title header */}
+        <div className="bg-white border-b border-mint-dark px-6 py-3 flex items-center justify-between flex-shrink-0 gap-3">
           <div className="flex items-center gap-3">
             <svg className="w-5 h-5 text-forest/40 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z" />
@@ -285,51 +325,130 @@ export default function InterviewChat({
               Interview with {selectedTwinId === 'all' ? 'All Twins' : selectedTwin?.name ?? ''}
             </h2>
           </div>
+          {/* Session progress */}
+          <div className="flex items-center gap-2 flex-shrink-0">
+            <div className="w-16 h-1 bg-forest/10 rounded-full overflow-hidden">
+              <div className="h-full bg-forest rounded-full transition-all" style={{ width: `${sessionPct}%` }} />
+            </div>
+            <span className="text-[10px] font-bold text-forest/30 uppercase tracking-wider hidden sm:block whitespace-nowrap">
+              {sessionPct}%
+            </span>
+          </div>
+        </div>
 
-          {/* Mode tabs + session progress */}
-          <div className="flex items-center gap-1 rounded-xl overflow-hidden border border-forest/10 bg-mint flex-shrink-0">
+        {/* ── Mode toggle bar (always visible, never scrolls) ── */}
+        <div className="relative bg-white border-b border-mint-dark px-4 py-2.5 flex items-center gap-3 flex-shrink-0 z-20">
+          {/* Problem / Value toggle */}
+          <div className="flex items-center gap-1 rounded-xl overflow-hidden border border-forest/10 bg-mint">
             {(['problem', 'value'] as const).map((m) => (
               <button
                 key={m}
                 onClick={() => setMode(m)}
-                className={`px-3 sm:px-4 py-2 text-xs font-bold tracking-wider uppercase transition-colors ${
+                className={`px-4 py-2 text-xs font-bold tracking-wider uppercase transition-colors whitespace-nowrap ${
                   mode === m ? 'bg-forest text-white' : 'text-forest/40 hover:text-forest/70'
                 }`}
               >
-                {m === 'problem' ? 'Problem' : 'Value'}
+                {m === 'problem' ? 'Problem Validation' : 'Value Proposition'}
               </button>
             ))}
-            <div className="px-3 py-2 flex items-center gap-2 border-l border-forest/10">
-              <div className="w-12 h-1 bg-forest/10 rounded-full overflow-hidden">
-                <div className="h-full bg-forest rounded-full transition-all" style={{ width: `${sessionPct}%` }} />
-              </div>
-              <span className="text-[10px] font-bold text-forest/30 uppercase tracking-wider hidden sm:block whitespace-nowrap">
-                Progress
-              </span>
-            </div>
           </div>
+
+          {/* "Question ideas" button — only after first message */}
+          {messages.length > 0 && (
+            <button
+              ref={guidelinesButtonRef}
+              onClick={() => setGuidelinesOpen((o) => !o)}
+              className={`flex items-center gap-1.5 text-xs font-semibold px-3 py-2 rounded-lg border transition-colors flex-shrink-0 ${
+                guidelinesOpen
+                  ? 'bg-forest text-white border-forest'
+                  : 'bg-white text-forest/50 border-forest/15 hover:border-forest/35 hover:text-forest/75'
+              }`}
+            >
+              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z" />
+              </svg>
+              Question ideas
+              <svg
+                className={`w-3 h-3 transition-transform ${guidelinesOpen ? 'rotate-180' : ''}`}
+                fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}
+              >
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+              </svg>
+            </button>
+          )}
+
+          {/* Dropdown panel */}
+          {messages.length > 0 && guidelinesOpen && (
+            <div
+              ref={guidelinesPanelRef}
+              className="absolute top-full left-0 right-0 bg-white border-b border-x border-forest/10 shadow-lg z-30 px-5 py-4"
+            >
+              <p className="text-xs text-forest/40 mb-3 leading-relaxed">
+                {QUESTION_GUIDELINES[mode].intro}
+              </p>
+              <div className="flex flex-col gap-1.5">
+                {QUESTION_GUIDELINES[mode].questions.map((q) => (
+                  <button
+                    key={q.text}
+                    onClick={() => pickQuestion(q.text)}
+                    className="group flex items-start gap-3 text-xs bg-mint/50 hover:bg-mint border border-transparent hover:border-forest/15 text-forest/60 hover:text-forest rounded-xl px-4 py-2.5 transition-colors text-left w-full"
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest text-forest/25 group-hover:text-forest/50 flex-shrink-0 min-w-[120px] leading-relaxed break-words">
+                      {q.hint}
+                    </span>
+                    <span className="leading-snug flex-1">{q.text}</span>
+                    <svg className="w-3 h-3 text-forest/20 group-hover:text-forest/40 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Context heading (when no messages yet) */}
+        {/* Context heading + Question Guidelines (before first message) */}
         {messages.length === 0 && (
-          <div className="px-8 py-10 text-center flex-shrink-0 border-b border-mint-dark bg-white/40">
-            <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mb-3">
-              {mode === 'problem' ? 'Phase 01: Context Exploration' : 'Phase 02: Value Assessment'}
-            </p>
-            <h3 className="text-xl sm:text-2xl font-black text-forest leading-tight mb-2 max-w-lg mx-auto">
-              {selectedTwinId === 'all'
-                ? mode === 'problem'
-                  ? 'Exploring the market pain points together.'
-                  : 'Testing your value proposition as a group.'
-                : mode === 'problem'
-                ? `Understanding ${selectedTwin?.name.split(' ')[0]}'s workflow challenges.`
-                : `Exploring ${selectedTwin?.name.split(' ')[0]}'s openness to new solutions.`}
-            </h3>
-            <p className="text-sm text-forest/40 max-w-md mx-auto">
-              {selectedTwinId === 'all'
-                ? 'Each twin will respond individually. Use the suggested questions below to get started.'
-                : `${selectedTwin?.name} is ready. Ask about their specific experience with the problem.`}
-            </p>
+          <div className="flex-shrink-0 border-b border-mint-dark bg-white/40 overflow-y-auto">
+            <div className="px-8 pt-8 pb-5 text-center">
+              <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mb-3">
+                {mode === 'problem' ? 'Phase 01: Context Exploration' : 'Phase 02: Value Assessment'}
+              </p>
+              <h3 className="text-xl sm:text-2xl font-black text-forest leading-tight max-w-lg mx-auto">
+                {selectedTwinId === 'all'
+                  ? mode === 'problem'
+                    ? 'Exploring the market pain points together.'
+                    : 'Testing your value proposition as a group.'
+                  : mode === 'problem'
+                  ? `Understanding ${selectedTwin?.name.split(' ')[0]}'s workflow challenges.`
+                  : `Exploring ${selectedTwin?.name.split(' ')[0]}'s openness to new solutions.`}
+              </h3>
+            </div>
+            <div className="px-6 pb-6">
+              <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mb-1 text-center">
+                Question Guidelines
+              </p>
+              <p className="text-xs text-forest/40 mb-4 leading-relaxed text-center max-w-md mx-auto">
+                {QUESTION_GUIDELINES[mode].intro}
+              </p>
+              <div className="flex flex-col gap-2 max-w-xl mx-auto">
+                {QUESTION_GUIDELINES[mode].questions.map((q) => (
+                  <button
+                    key={q.text}
+                    onClick={() => pickQuestion(q.text)}
+                    className="group flex items-start gap-3 text-xs bg-white border border-forest/12 hover:border-forest/30 text-forest/60 hover:text-forest rounded-xl px-4 py-2.5 transition-colors text-left w-full"
+                  >
+                    <span className="text-[9px] font-black uppercase tracking-widest text-forest/25 group-hover:text-forest/50 flex-shrink-0 min-w-[120px] leading-relaxed break-words">
+                      {q.hint}
+                    </span>
+                    <span className="leading-snug flex-1">{q.text}</span>
+                    <svg className="w-3 h-3 text-forest/20 group-hover:text-forest/40 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+                    </svg>
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
         )}
 
@@ -342,27 +461,14 @@ export default function InterviewChat({
           <div ref={bottomRef} />
         </div>
 
-        {/* Suggested questions */}
-        <div className="px-6 py-3 border-t border-mint-dark bg-white/60 flex flex-wrap gap-2 flex-shrink-0">
-          {SUGGESTED[mode].map((q) => (
-            <button
-              key={q}
-              onClick={() => setInput(q)}
-              className="text-xs px-3 py-1.5 rounded-full border border-forest/15 text-forest/50 hover:border-forest/40 hover:text-forest/70 transition-colors bg-white"
-            >
-              {q}
-            </button>
-          ))}
-        </div>
-
-        {/* Input bar — white background, dark text */}
+        {/* Input bar */}
         <div className="bg-white border-t border-mint-dark px-4 py-3 flex gap-3 items-end flex-shrink-0">
           <textarea
             ref={inputRef}
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={handleKeyDown}
-            placeholder="Type your follow-up question here..."
+            placeholder="Type your question here..."
             rows={1}
             className="flex-1 bg-white text-forest placeholder-forest/30 text-sm outline-none resize-none border border-mint-dark rounded-xl px-4 py-2.5 focus:border-forest/30 transition-colors"
             style={{ minHeight: '42px', maxHeight: '120px' }}

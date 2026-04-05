@@ -36,12 +36,13 @@ const FIELDS = [
 ]
 
 export default function ProjectForm({ initialValues, onSubmit }: ProjectFormProps) {
-  const [values, setValues] = useState<Omit<ProjectInfo, 'twinCount'>>({
+  const [values, setValues] = useState<Omit<ProjectInfo, 'twinCount' | 'marketSegments'>>({
     name: initialValues?.name ?? '',
     problem: initialValues?.problem ?? '',
     target: initialValues?.target ?? '',
     solution: initialValues?.solution ?? '',
   })
+  const [marketSegments, setMarketSegments] = useState(initialValues?.marketSegments ?? '')
   const [twinCount, setTwinCount] = useState(initialValues?.twinCount ?? 3)
   const [errors, setErrors] = useState<Partial<Record<keyof typeof values, string>>>({})
 
@@ -64,7 +65,7 @@ export default function ProjectForm({ initialValues, onSubmit }: ProjectFormProp
       setErrors(errs)
       return
     }
-    onSubmit({ ...values, twinCount })
+    onSubmit({ ...values, twinCount, marketSegments: marketSegments.trim() || undefined })
   }
 
   return (
@@ -206,6 +207,24 @@ export default function ProjectForm({ initialValues, onSubmit }: ProjectFormProp
                   )}
                 </div>
               ))}
+            </div>
+
+            {/* Market Segments (optional) */}
+            <div className="mt-10">
+              <label className="block text-xs font-semibold tracking-widest text-forest/40 mb-1 uppercase">
+                05. Market Segments
+                <span className="ml-2 normal-case font-normal text-forest/25 tracking-normal">— optional</span>
+              </label>
+              <p className="text-xs text-forest/30 mb-3">
+                If you know your segments, list them comma-separated to get one Twin per segment (max 3).
+              </p>
+              <input
+                type="text"
+                value={marketSegments}
+                onChange={(e) => setMarketSegments(e.target.value)}
+                placeholder="E.g. manufacturing SMEs, tech startups, large corporates (leave empty if unsure)"
+                className="input-underline"
+              />
             </div>
 
             {/* Bottom row */}

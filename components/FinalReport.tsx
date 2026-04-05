@@ -1,7 +1,8 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import type { DigitalTwin, Message, ProjectInfo, Report } from '@/lib/types'
+import type { DigitalTwin, Message, ProjectInfo, Report, WhereToPlayEntry } from '@/lib/types'
+import { TWIN_SIDEBAR_COLORS, getTwinIndex } from '@/lib/types'
 
 interface FinalReportProps {
   projectInfo: ProjectInfo
@@ -53,6 +54,154 @@ function MetricCard({
       </div>
       <div className="h-px bg-forest/10 mb-4" />
       <p className="text-xs text-forest/50 leading-relaxed">{description}</p>
+    </div>
+  )
+}
+
+const QUADRANT_LABELS = [
+  { x: '75%', y: '12%', label: 'Invest', sub: 'High attractiveness + strong fit', color: 'text-emerald-700' },
+  { x: '8%',  y: '12%', label: 'Selective', sub: 'Build capability first', color: 'text-amber-600' },
+  { x: '75%', y: '62%', label: 'Partner', sub: 'Attractive but hard to serve', color: 'text-blue-600' },
+  { x: '8%',  y: '62%', label: 'Deprioritize', sub: 'Low priority', color: 'text-forest/30' },
+]
+
+const DOT_COLORS = [
+  'bg-forest',
+  'bg-teal-700',
+  'bg-slate-600',
+  'bg-amber-700',
+  'bg-rose-700',
+]
+
+function WhereToPlayMatrix({ entries }: { entries: WhereToPlayEntry[] }) {
+  return (
+    <div className="bg-white rounded-2xl p-6 border border-forest/5 mb-8">
+      {/* Header */}
+      <div className="flex items-start justify-between mb-1">
+        <div>
+          <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mb-1">
+            Strategic Hypothesis
+          </p>
+          <h3 className="text-base font-bold text-forest">Where to Play</h3>
+        </div>
+        <span className="text-[10px] bg-amber-50 text-amber-700 border border-amber-200 rounded-full px-3 py-1 font-semibold tracking-wide">
+          AI Hypothesis
+        </span>
+      </div>
+      <p className="text-xs text-forest/40 mb-6 leading-relaxed max-w-lg">
+        Segment positions are inferred from interview signals (problem urgency, willingness to pay, adoption barriers, solution fit).
+        <strong className="text-forest/60"> This is an AI-generated hypothesis — use it as a starting point for discussion.</strong>
+      </p>
+
+      <div className="flex flex-col lg:flex-row gap-6 items-start">
+        {/* 2×2 Matrix */}
+        <div className="flex-1 min-w-0">
+          {/* Y-axis label */}
+          <div className="flex items-stretch gap-3">
+            <div className="flex flex-col items-center justify-center gap-1 w-5 flex-shrink-0">
+              <span className="text-[9px] font-bold tracking-widest uppercase text-forest/30 rotate-[-90deg] whitespace-nowrap origin-center">
+                Ability to Serve →
+              </span>
+            </div>
+
+            <div className="flex-1 flex flex-col">
+              {/* Matrix area */}
+              <div className="relative w-full" style={{ paddingBottom: '75%' }}>
+                <div className="absolute inset-0 rounded-xl border border-forest/10 overflow-hidden">
+                  {/* Quadrant backgrounds */}
+                  <div className="absolute inset-0 grid grid-cols-2 grid-rows-2">
+                    <div className="bg-emerald-50/60 border-r border-b border-forest/8" />
+                    <div className="bg-amber-50/40 border-b border-forest/8" />
+                    <div className="bg-blue-50/40 border-r border-forest/8" />
+                    <div className="bg-forest/[0.02]" />
+                  </div>
+
+                  {/* Center dividers */}
+                  <div className="absolute left-1/2 top-0 bottom-0 w-px bg-forest/10" />
+                  <div className="absolute top-1/2 left-0 right-0 h-px bg-forest/10" />
+
+                  {/* Quadrant labels */}
+                  {QUADRANT_LABELS.map((q) => (
+                    <div
+                      key={q.label}
+                      className="absolute"
+                      style={{ left: q.x, top: q.y, transform: 'translateX(-50%)' }}
+                    >
+                      <p className={`text-[10px] font-black uppercase tracking-wider ${q.color}`}>{q.label}</p>
+                      <p className="text-[9px] text-forest/25 whitespace-nowrap">{q.sub}</p>
+                    </div>
+                  ))}
+
+                  {/* Dots */}
+                  {entries.map((entry, i) => {
+                    // x = segmentAttractiveness (0=left, 100=right)
+                    // y = abilityToServe (0=bottom, 100=top) — CSS top is inverted
+                    const leftPct = Math.min(Math.max(entry.segmentAttractiveness, 5), 95)
+                    const topPct = Math.min(Math.max(100 - entry.abilityToServe, 5), 95)
+                    const color = DOT_COLORS[i % DOT_COLORS.length]
+                    return (
+                      <div
+                        key={entry.twinId}
+                        className="absolute"
+                        style={{ left: `${leftPct}%`, top: `${topPct}%`, transform: 'translate(-50%, -50%)' }}
+                      >
+                        <div className="relative group">
+                          <div
+                            className={`w-7 h-7 rounded-full ${color} border-2 border-white shadow-md flex items-center justify-center text-white text-[9px] font-black cursor-default`}
+                          >
+                            {i + 1}
+                          </div>
+                          {/* Tooltip */}
+                          <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 hidden group-hover:block z-10 pointer-events-none">
+                            <div className="bg-forest text-white text-[10px] rounded-lg px-3 py-2 whitespace-nowrap shadow-lg">
+                              <p className="font-bold">{entry.twinName}</p>
+                              <p className="text-white/70">{entry.segment}</p>
+                              <p className="text-white/60 mt-1">Attractiveness: {entry.segmentAttractiveness}</p>
+                              <p className="text-white/60">Ability to serve: {entry.abilityToServe}</p>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+
+              {/* X-axis label */}
+              <p className="text-[9px] font-bold tracking-widest uppercase text-forest/30 text-center mt-2">
+                Segment Attractiveness →
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Legend */}
+        <div className="lg:w-56 flex-shrink-0 space-y-3">
+          <p className="text-[10px] font-bold tracking-widest uppercase text-forest/30 mb-3">Segments</p>
+          {entries.map((entry, i) => {
+            const color = DOT_COLORS[i % DOT_COLORS.length]
+            return (
+              <div key={entry.twinId} className="flex items-start gap-3">
+                <div className={`w-6 h-6 rounded-full ${color} flex-shrink-0 flex items-center justify-center text-white text-[9px] font-black mt-0.5`}>
+                  {i + 1}
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-forest leading-tight">{entry.twinName}</p>
+                  <p className="text-[10px] text-forest/40">{entry.segment}</p>
+                  <div className="flex gap-3 mt-1">
+                    <span className="text-[9px] text-forest/40">
+                      Attract. <span className="font-bold text-forest/60">{entry.segmentAttractiveness}</span>
+                    </span>
+                    <span className="text-[9px] text-forest/40">
+                      Fit <span className="font-bold text-forest/60">{entry.abilityToServe}</span>
+                    </span>
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
@@ -295,6 +444,11 @@ export default function FinalReport({
           </div>
         </div>
       </div>
+
+      {/* Where to Play — AI Hypothesis */}
+      {report.whereToPlay && report.whereToPlay.length > 0 && (
+        <WhereToPlayMatrix entries={report.whereToPlay} />
+      )}
 
       {/* Back / Start over */}
       <div className="flex items-center justify-between pt-4 border-t border-forest/10">

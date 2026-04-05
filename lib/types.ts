@@ -4,6 +4,7 @@ export interface ProjectInfo {
   target: string
   solution: string
   twinCount: number
+  marketSegments?: string   // comma-separated, optional
 }
 
 export interface DigitalTwin {
@@ -19,6 +20,7 @@ export interface DigitalTwin {
   budgetTier: 'low' | 'mid' | 'premium'
   affinityLabel: 'high_affinity' | 'moderate' | 'early_adopter'
   personality: string
+  segment: string           // which market segment this twin represents
 }
 
 export interface Message {
@@ -29,6 +31,14 @@ export interface Message {
   timestamp?: string
 }
 
+export interface WhereToPlayEntry {
+  twinId: string
+  twinName: string
+  segment: string
+  segmentAttractiveness: number   // 0-100
+  abilityToServe: number          // 0-100
+}
+
 export interface Report {
   problemIntensity: number
   valueResonance: number
@@ -37,6 +47,7 @@ export interface Report {
   verdict: 'strong_fit' | 'weak_fit' | 'pivot_needed'
   nextSteps: string[]
   summary: string
+  whereToPlay: WhereToPlayEntry[]
 }
 
 export const TWIN_SIDEBAR_COLORS = [

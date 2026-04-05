@@ -24,6 +24,10 @@ export async function POST(request: NextRequest) {
       )
       .join('\n\n')
 
+    const twinSummary = twins
+      .map((t) => `- ${t.name} | Segment: "${t.segment}" | ${t.age}, ${t.occupation}`)
+      .join('\n')
+
     const prompt = `Analyze this startup validation interview and generate a comprehensive validation report.
 
 PROJECT DETAILS:
@@ -33,7 +37,7 @@ Target audience: ${projectInfo.target}
 Solution: ${projectInfo.solution}
 
 DIGITAL TWINS INTERVIEWED:
-${twins.map((t) => `- ${t.name} (${t.age}, ${t.occupation})`).join('\n')}
+${twinSummary}
 
 INTERVIEW TRANSCRIPT:
 ${transcript || 'No conversation recorded.'}
@@ -46,6 +50,15 @@ Generate a validation report as a JSON object with exactly these fields:
 - verdict: exactly one of "strong_fit" | "weak_fit" | "pivot_needed"
 - nextSteps: string[] (exactly 3 specific, actionable next steps for the founder)
 - summary: string (2-3 sentences summarizing the key validation findings)
+- whereToPlay: array with one entry per twin, each entry being:
+  {
+    "twinId": string (e.g. "twin1"),
+    "twinName": string,
+    "segment": string (the twin's segment label),
+    "segmentAttractiveness": number 0-100 (how attractive this segment is as a market opportunity — based on problem urgency and willingness-to-pay signals expressed in the interview; 0 = very low urgency/WTP, 100 = extremely urgent with high WTP),
+    "abilityToServe": number 0-100 (how well the proposed solution fits this segment's specific needs — based on perceived solution fit and absence of hard adoption barriers from the interview; 0 = very poor fit or blocking barriers, 100 = strong fit, easy adoption)
+  }
+  The whereToPlay scores MUST be derived strictly from interview signals (language about urgency, budget references, adoption friction, fit expressed by each twin). Do not make all scores similar — spread them across the 0-100 range based on actual differences in how each twin responded.
 
 Be rigorous and honest in your assessment. Base scores on actual interview content, not just the project description.`
 

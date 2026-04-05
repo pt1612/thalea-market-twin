@@ -166,7 +166,8 @@ export default function TwinProfiles({ projectInfo, initialTwins, onContinue, on
     return () => clearInterval(interval)
   }, [initialTwins, projectInfo])
 
-  const count = projectInfo.twinCount
+  // Skeleton count always matches twinCount from the form; switch to actual length once loaded
+  const count = twins.length > 0 ? twins.length : projectInfo.twinCount
 
   return (
     <div className="max-w-7xl mx-auto px-6 py-14">

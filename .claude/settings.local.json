@@ -6,7 +6,12 @@
       "Read(//Users/pietrotegon/.nvm/versions/**)",
       "Read(//opt/homebrew/bin/**)",
       "Read(//Users/pietrotegon/**)",
-      "Bash(export PATH=\"$PATH:/opt/homebrew/bin:/usr/local/bin:/usr/bin\")"
+      "Bash(export PATH=\"$PATH:/opt/homebrew/bin:/usr/local/bin:/usr/bin\")",
+      "Bash(npx tsc:*)",
+      "Bash(/usr/local/bin/npx tsc:*)",
+      "Bash(/usr/local/bin/node /usr/local/bin/npx tsc --noEmit --project \"/Users/pietrotegon/Desktop/Thalea market twins/tsconfig.json\")",
+      "Bash(env -i PATH=/usr/local/bin:/usr/bin:/bin /usr/local/bin/node --version)",
+      "Bash(env -i PATH=/usr/local/bin:/usr/bin:/bin HOME=\"$HOME\" /usr/local/bin/node /usr/local/bin/npx tsc --noEmit --project \"/Users/pietrotegon/Desktop/Thalea market twins/tsconfig.json\")"
     ]
   }
 }
